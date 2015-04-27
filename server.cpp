@@ -160,9 +160,10 @@ int mcput(rio_t *rio, int connfd) {
     Fclose(myfile);
     addFile(fileName);
     status = 0;
+    free(data);
     
     // Send the status of the operation (success or failure)
-    char *response = new char [4];
+    char *response = (char *) malloc(4);
     char *bufPosition = response;
 
     networkOrder = htonl(status);
@@ -170,6 +171,7 @@ int mcput(rio_t *rio, int connfd) {
     bufPosition += 4;
     
     Rio_writen(connfd, response, 4);
+    free(response);
     return status;
 }
 
@@ -207,7 +209,7 @@ int mcget(rio_t *rio, int connfd) {
             // Put the file pointer back at the beginning
             rewind(file);
 
-            data = new char [fileSize];
+            data = (char*) malloc (fileSize);
         if(fread(data, 1, fileSize, file) == fileSize){
            fclose(file); 
            status = 0; 
@@ -219,7 +221,7 @@ int mcget(rio_t *rio, int connfd) {
         
     }
 
-    fileData = new char [(4+4+fileSize)];
+    fileData =  (char*) malloc(4+4+fileSize);
     char *bufPosition = fileData;
     
     // Copy the status of the operation to the buffer
@@ -233,8 +235,9 @@ int mcget(rio_t *rio, int connfd) {
     // Copy the file's data to the buffer
     memcpy(bufPosition, data, fileSize);
     bufPosition += fileSize;
-    
+    free(data);
     Rio_writen(connfd, fileData, (4+4+fileSize));
+    free (fileData);
     return status;
 }
 
@@ -262,7 +265,7 @@ int mcdel(rio_t *rio, int connfd) {
         status = 0;
         }
     
-    char * response = new char [4];
+    char * response = (char*) malloc(4);
     char *bufPosition = response;
     
     // Copy the status into the response buffer
@@ -271,7 +274,7 @@ int mcdel(rio_t *rio, int connfd) {
     bufPosition += 4;
 
     Rio_writen(connfd, response, 4);
-
+    free(response);
     return status;
 }
 
@@ -286,7 +289,7 @@ int mclist(rio_t *rio, int connfd) {
     // Status size + Request size + length of data
     unsigned int datalen = fileList.size() * 80;
 
-    data = new char [(4+4+datalen)];
+    data = (char*) malloc(4+4+datalen);
     char *bufPosition = data;
     status = 0;
     // Copy the status into the data buffer
@@ -298,33 +301,45 @@ int mclist(rio_t *rio, int connfd) {
     memcpy(bufPosition, &networkOrder, 4);
     bufPosition += 4;
     // Copy the filelist to the buffer
+    string temp;
+    for (int i = 0; i < fileList.size(); i++){
+        temp = string(fileList[i]);
+        for (int j = temp.length(); j < 80; j++){
+            fileList[i][j] = '\0';
+        }
+        }
     for (int i = 0; i < fileList.size(); i++){
         for (int j = 0; j < 80; j++){
-        printf("%c | ", fileList[i][j]);
-        }
-        }
+            printf("%c | ", fileList[i][j]);
+            }
+         }
     cout << "DATALEN: " << datalen << endl;
-        
-    memcpy(bufPosition, fileList[0], datalen);
-    bufPosition += datalen;
+    for (int i = 0; i < fileList.size(); i++){
+    memcpy(bufPosition, fileList[i], 80);
+    bufPosition += 80;
+
+    }
 
     Rio_writen(connfd, data, (4+4+datalen));
+    free (data);
     return status;
 }
 
 
-int addFile(char *fileName) {
+int addFile(char * fileName) {
     string finalstr = string(fileName);
-    char* finalbuf = (char *) malloc (80);
+    char* finalbuf = (char *)malloc (80);
     int strlength = finalstr.length();
     if(!fileExists(fileName)) {
-        while (strlength <= 80)
+        while (strlength < 80)
         {
             finalstr += "\0";
             strlength+=1;
 
         }
+      
         strcpy(finalbuf, finalstr.c_str());
+       // memcpy(finalbuf, finalstr, 80);
         fileList.push_back(finalbuf);
         return 0;
     }

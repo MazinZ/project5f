@@ -32,7 +32,7 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   char filelist[100000];
   unsigned int status;
   rio_t rio;
-  
+   
   Rio_readinitb(&rio, clientfd);
   // Get the operation status
   Rio_readnb(&rio, statusbuffer, 4);
@@ -47,10 +47,17 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   Rio_readnb(&rio, filelist, *listbuflen);
   *list = (char*) malloc (*listbuflen);
   memcpy(*list, &filelist, *listbuflen);
+  
+  /*for (int i = 0; i < 240; i++){
+  printf("%c | ", filelist[i]);
+  }*/
+
+ 
 
   Close(clientfd);
   return status;
 }
+
 
 
 int main(int argc, char *argv[]){
@@ -72,7 +79,8 @@ if (argc != 4) {
     for(i = 0; i < listbuflen; i += 80) {
       memcpy(&fileName, listbuf + i, 80);
       cout << fileName << endl;
-    }
+   
+  }
   }
 
   return status;
