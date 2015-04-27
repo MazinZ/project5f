@@ -1,13 +1,73 @@
 #include <iostream>
-#include <stdlib.h>
-#include "mycloudlibrary.cpp"
+extern "C" {
+
+  #include "csapp.h"
+  }
+ #include "mycloud.h"
+
 
 using namespace std;
+
+int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filename, char **data, int *datalen) {
+  unsigned int requestType = 0;
+  int clientfd;
+  unsigned int networkOrder;
+  
+  // Secret key + request type + filename
+  char * dataRequest = (char*) malloc (4+4+80);
+  char *bufPosition = dataRequest;
+  
+  // Adds the secret key to the buffer
+  networkOrder = htonl(SecretKey);
+  memcpy(bufPosition, &networkOrder, 4);
+  bufPosition += 4;
+  
+  // Adds the request type to the buffer
+  networkOrder = htonl(requestType);
+  memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
+  bufPosition += REQUEST_TYPE_SIZE;
+  
+  // Adds the filename to the buffer
+  memcpy(bufPosition, Filename, FILE_NAME_SIZE);
+  bufPosition += FILE_NAME_SIZE;
+
+  clientfd = Open_clientfd(MachineName, TCPport);
+  Rio_writen(clientfd, message, (4+4+80));
+
+  // Here is where we get the response
+  unsigned int status; 
+  char buffer[(4+4+100000)];
+  char fileData[100000];
+  char fileSizeBuf[4];
+  
+  rio_t rio;
+  Rio_readinitb(&rio, clientfd);
+
+  // Read all of the data into a buffer
+  Rio_readnb(&rio, buffer, 4) == 4);
+  memcpy(&networkOrder, &buffer, 4);
+  status = ntohl(networkOrder);
+
+  // Get the file size
+  Rio_readnb(&rio, fileSizeBuf, 4);
+  memcpy(&networkOrder, &fileSizeBuf, 4);
+   datalen = htonl(networkOrder);
+
+  unsigned int filesize = *datalen;
+  Rio_readnb(&rio, fileData, filesize);
+  *data = (char*) malloc (filesize);
+  memcpy(*data, &fileData, filesize);
+
+  Close(clientfd);
+  write(1, data, datalen);
+  return status;
+}
+
 
 int main(int argc, char *argv[]) {
   
   if (argc != 5) { 
-    cout << "Usage: ./mcget <machine> <port> <secret key> <filename>i" << endl; r
+    cout << "Usage: ./mcget <machine> <port> <secret key> <filename>i" << endl;
     return -1;
     }
    
@@ -19,7 +79,6 @@ int main(int argc, char *argv[]) {
   int datalen;
 
 
-  int status = mycloud_getfile(MachineName, TCPport, secretKey, Filename, &data, &datalen);
-  write(1, data, datalen);
+  int status = mycloud_getfile(MachineName, TCPport, secretKey, FileName, &data, &datalen);
   return status;
 }

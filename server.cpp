@@ -154,7 +154,7 @@ int mcput(rio_t *rio, int connfd) {
     }
 
     if(Rio_readnb(rio, dataBuf, fileSize) == fileSize) {
-        data = (char*) malloc (sizeof(char)*fileSize);
+        data = new char [fileSize];
         memcpy(data, &dataBuf, fileSize);
     } 
     
@@ -207,7 +207,7 @@ int mcget(rio_t *rio, int connfd) {
             fileSize = ftell(file);
             rewind(file);
 
-            data = (char*) malloc (fileSize);
+            data = new char [fileSize];
         if(fread(data, 1, fileSize, file) == fileSize) {
            fclose(file); 
            status = 0; 
@@ -218,7 +218,7 @@ int mcget(rio_t *rio, int connfd) {
 
     messageSize = STATUS_SIZE + MAX_NUM_BYTES_IN_FILE + fileSize;
 
-    fileData = (char*) malloc (messageSize);
+    fileData = new char [messageSize];
     char *bufPosition = fileData;
 
     networkOrder = htonl(status);

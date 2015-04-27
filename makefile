@@ -1,7 +1,7 @@
 CFLAGS = -Wall
 CPPFLAGS = -Wall
 
-all: server mcput mclist mcdel #client mcput mcget mcdel mclist
+all: server mcput mclist mcdel mcget #client mcput mcget mcdel mclist
 
 csapp.h:
 	wget http://csapp.cs.cmu.edu/2e/ics2/code/include/csapp.h
@@ -31,6 +31,9 @@ mclist: mclist.cpp csapp.o
 
 mcdel: mcdel.cpp csapp.o
 	g++ $(CPPFLAGS) mcdel.cpp csapp.o -lpthread -o mcdel
+
+mcget: mcget.cpp csapp.o
+	g++ $(CPPFLAGS) mcget.cpp csapp.o -lpthread -o mcget
 
 .PHONY: clean
 clean:

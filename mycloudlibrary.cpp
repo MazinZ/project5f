@@ -7,20 +7,20 @@ extern "C" {
 using namespace std;
 
 int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileName, char *data, int datalen) {
-  unsigned int request = 1;
+  unsigned int requestType = 1;
   int clientfd;
   char *filedata;
   unsigned int networkOrder;
 
-
-  filedata = (char*) malloc ((4 + 4 + 80 + 100000 + datalen));
+  // secretKey size + request type size + max filename length + 
+  filedata = (char*) malloc ((4 + 4 + 80 + 4 + datalen));
   char *bufposition = filedata;
 
   networkOrder = htonl(SecretKey);
   memcpy(bufposition, &networkOrder, 4);
   bufposition += 4;
 
-  networkOrder = htonl(request);
+  networkOrder = htonl(requestType);
   memcpy(bufposition, &networkOrder, 4);
   bufposition += 4;
 
@@ -35,9 +35,8 @@ int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileNam
   bufposition += datalen;
 
   clientfd = Open_clientfd(MachineName, TCPport);
-  Rio_writen(clientfd, filedata, (4 + 4 + 80 + 100000 + datalen));
+  Rio_writen(clientfd, filedata, (4 + 4 + 80 + 4 + datalen));
 
-  size_t n;
   char buf[4];
   unsigned int status;
   rio_t rio;
@@ -53,7 +52,7 @@ int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileNam
 }
 
 int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list, int *listbuflen) {
-  unsigned int request = 3;
+  unsigned int requestType = 3;
   int clientfd;
   char *message;
   unsigned int messageSize, networkOrder;
@@ -67,7 +66,7 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   memcpy(bufPosition, &networkOrder, 4);
   bufPosition += 4;
 
-  networkOrder = htonl(request);
+  networkOrder = htonl(requestType);
   memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
   bufPosition += REQUEST_TYPE_SIZE;
 
@@ -75,7 +74,6 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   Rio_writen(clientfd, message, messageSize);
   free(message);
 
-  size_t n;
   char statusBuf[4];
   char listSizeBuf[4];
   char listBuf[100000];
@@ -83,27 +81,19 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   rio_t rio;
   Rio_readinitb(&rio, clientfd);
 
-  if((n = Rio_readnb(&rio, statusBuf, 4)) == 4) {
+    Rio_readnb(&rio, statusBuf, 4);
     memcpy(&networkOrder, &statusBuf, 4);
     status = ntohl(networkOrder);
-  }
-  else 
-    status = -1;
 
-  if((n = Rio_readnb(&rio, listSizeBuf, 4)) == 4) {
+    Rio_readnb(&rio, listSizeBuf, 4);
     memcpy(&networkOrder, &listSizeBuf, 4);
     *listbuflen = ntohl(networkOrder);
-  } 
-  else 
-    status = -1;
 
-  if((n = Rio_readnb(&rio, listBuf, *listbuflen)) == *listbuflen) {
+
+    Rio_readnb(&rio, listBuf, *listbuflen);
     *list = (char*) malloc (*listbuflen);
     memcpy(*list, &listBuf, *listbuflen);
     status = 0;
-  } 
-  else
-    status = -1;
 
   Close(clientfd);
   return status;
@@ -111,7 +101,7 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
 
 
 int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filename) { 
-  unsigned int request = 2;
+  unsigned int requestType = 2;
   int clientfd;
   char *message;
   unsigned int messageSize, networkOrder;
@@ -125,7 +115,7 @@ int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   memcpy(bufPosition, &networkOrder, 4);
   bufPosition += 4;
 
-  networkOrder = htonl(request);
+  networkOrder = htonl(requestType);
   memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
   bufPosition += REQUEST_TYPE_SIZE;
 
@@ -135,15 +125,13 @@ int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   clientfd = Open_clientfd(MachineName, TCPport);
   Rio_writen(clientfd, message, messageSize);
 
-
-  size_t n;
   char buf[4];
   unsigned int status;
   rio_t rio;
   Rio_readinitb(&rio, clientfd);
   
   status = -1;
-  if((n = Rio_readnb(&rio, buf, 4)) == 4) {
+  if(Rio_readnb(&rio, buf, 4) == 4) {
     memcpy(&networkOrder, &buf, 4);
     status = ntohl(networkOrder);
   }
@@ -155,7 +143,7 @@ int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
 
 
 int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filename, char **data, int *datalen) {
-  unsigned int request = 0;
+  unsigned int requestType = 0;
   int clientfd;
   char *message;
   unsigned int messageSize, networkOrder;
@@ -169,7 +157,10 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   memcpy(bufPosition, &networkOrder, 4);
   bufPosition += 4;
 
-  networkOrder = htonl(request);
+
+  
+
+  networkOrder = htonl(requestType);
   memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
   bufPosition += REQUEST_TYPE_SIZE;
 
@@ -180,18 +171,17 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   Rio_writen(clientfd, message, messageSize);
   free(message);
 
-  size_t n;
   int GET_STATUS_SIZE = 4 + 4 + 100000;
   char buf[GET_STATUS_SIZE];
   char fileSizeBuf[4];
-  char dataBuf[100000];
-  unsigned int status, bytesInFile;
+  char fileData[100000];
+  unsigned int status; 
   
   rio_t rio;
   Rio_readinitb(&rio, clientfd);
 
 
-  if((n = Rio_readnb(&rio, buf, 4)) == 4) {
+  if(Rio_readnb(&rio, buf, 4) == 4) {
     memcpy(&networkOrder, &buf, 4);
     status = ntohl(networkOrder);
   } 
@@ -199,20 +189,18 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
     status = -1;
   
 
-
-  if((n = Rio_readnb(&rio, fileSizeBuf, 4)) == 4) {
+  if(Rio_readnb(&rio, fileSizeBuf, 4) == 4) {
     memcpy(&networkOrder, &fileSizeBuf, 4);
     *datalen = htonl(networkOrder);
   } 
   else 
     status = -1;
+    
+  unsigned int filesize = *datalen;
   
-  bytesInFile = *datalen;
-  
-  if((n = Rio_readnb(&rio, dataBuf, bytesInFile)) == bytesInFile) {
-
-    *data = (char*) malloc (bytesInFile);
-    memcpy(*data, &dataBuf, bytesInFile);
+  if(Rio_readnb(&rio, fileData, filesize) == filesize) {
+    *data = (char*) malloc (filesize);
+    memcpy(*data, &fileData, filesize);
   
   } 
   else 
@@ -220,7 +208,6 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   
 
   Close(clientfd);
-
   return status;
 }
 
