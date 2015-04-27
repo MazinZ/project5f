@@ -9,12 +9,12 @@ extern "C" {
 using namespace std;
 
 int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filename, char **data, int *datalen) {
+  // GET corresponds to a 0
   unsigned int requestType = 0;
-  int clientfd;
   unsigned int networkOrder;
   
   // Secret key + request type + filename
-  char * dataRequest = (char*) malloc (4+4+80);
+  char * dataRequest = (char*) malloc (4+80+4);
   char *bufPosition = dataRequest;
   
   // Adds the secret key to the buffer
@@ -24,15 +24,15 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   
   // Adds the request type to the buffer
   networkOrder = htonl(requestType);
-  memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
-  bufPosition += REQUEST_TYPE_SIZE;
+  memcpy(bufPosition, &networkOrder, 4);
+  bufPosition += 4;
   
   // Adds the filename to the buffer
-  memcpy(bufPosition, Filename, FILE_NAME_SIZE);
-  bufPosition += FILE_NAME_SIZE;
+  memcpy(bufPosition, Filename, 80);
+  bufPosition += 80;
 
-  clientfd = Open_clientfd(MachineName, TCPport);
-  Rio_writen(clientfd, message, (4+4+80));
+  int clientfd = Open_clientfd(MachineName, TCPport);
+  Rio_writen(clientfd, dataRequest, (4+80+4));
 
   // Here is where we get the response
   unsigned int status; 
@@ -44,22 +44,21 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   Rio_readinitb(&rio, clientfd);
 
   // Read all of the data into a buffer
-  Rio_readnb(&rio, buffer, 4) == 4);
+  Rio_readnb(&rio, buffer, 4);
   memcpy(&networkOrder, &buffer, 4);
   status = ntohl(networkOrder);
 
   // Get the file size
   Rio_readnb(&rio, fileSizeBuf, 4);
   memcpy(&networkOrder, &fileSizeBuf, 4);
-   datalen = htonl(networkOrder);
-
+  *datalen = ntohl(networkOrder);
+  
   unsigned int filesize = *datalen;
   Rio_readnb(&rio, fileData, filesize);
-  *data = (char*) malloc (filesize);
+  *data = new char [filesize];
   memcpy(*data, &fileData, filesize);
 
   Close(clientfd);
-  write(1, data, datalen);
   return status;
 }
 
@@ -80,5 +79,7 @@ int main(int argc, char *argv[]) {
 
 
   int status = mycloud_getfile(MachineName, TCPport, secretKey, FileName, &data, &datalen);
+  write(1, data, datalen);
+
   return status;
 }

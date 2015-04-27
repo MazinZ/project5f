@@ -169,7 +169,7 @@ int mcput(rio_t *rio, int connfd) {
         status = 0;
     
     // Send the status of the operation (success or failure)
-    response = (char*) malloc (4);
+    response = new char [4];
     char *bufPosition = response;
 
     networkOrder = htonl(status);
@@ -237,13 +237,12 @@ int mcget(rio_t *rio, int connfd) {
 }
 
 int mcdel(rio_t *rio, int connfd) {
-    size_t n;
     char fileNameBuf[80];
     char fileName[80];
     unsigned int networkOrder, status, messageSize;
     char *response;   
     
-    if((n = Rio_readnb(rio, fileNameBuf, 80)) == 80) {
+    if(Rio_readnb(rio, fileNameBuf, 80) == 80) {
         memcpy(&fileName, &fileNameBuf, 80);
         cout << "Filename         = " <<  fileName << endl;
     } else {
@@ -261,8 +260,7 @@ int mcdel(rio_t *rio, int connfd) {
         }
     }
 
-    messageSize = 4;
-    response = (char*) malloc(messageSize);
+    response = new char [4];
     char *bufPosition = response;
 
     networkOrder = htonl(status);
@@ -284,7 +282,7 @@ int mclist(rio_t *rio, int connfd) {
     messageSize = STATUS_SIZE + MAX_NUM_BYTES_IN_FILE + datalen;
     datalen = fileList.size() * 80;
 
-    message = (char*) malloc (messageSize);
+    message = new char [messageSize];
     char *bufPosition = message;
     status = 0;
 

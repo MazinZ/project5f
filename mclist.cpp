@@ -28,8 +28,7 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   memcpy(bufPosition, &networkOrder, 4);
   bufPosition += 4;
 
-  int clientfd;
-  clientfd = Open_clientfd(MachineName, TCPport);
+  int clientfd = Open_clientfd(MachineName, TCPport);
   Rio_writen(clientfd, message, (4+4));
   free(message);
 

@@ -11,7 +11,6 @@ extern "C" {
 
 int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filename) { 
   unsigned int requestType = 2;
-  int clientfd;
   char *message;
   unsigned int messageSize, networkOrder;
 
@@ -31,7 +30,7 @@ int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   memcpy(bufPosition, Filename, FILE_NAME_SIZE);
   bufPosition += 80;
 
-  clientfd = Open_clientfd(MachineName, TCPport);
+  int clientfd = Open_clientfd(MachineName, TCPport);
   Rio_writen(clientfd, message, messageSize);
 
   char buf[4];
