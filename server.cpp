@@ -1,6 +1,4 @@
-
 #include <iostream>
-#include <stdlib.h>
 #include "mycloud.h"
 #include <vector>
 #include <algorithm>
@@ -14,15 +12,17 @@ extern "C" {
 #include <string.h>
 
 
-int getRequest(rio_t *rio);
 int mcput(rio_t *rio, int connfd);
 int mcget(rio_t *rio, int connfd);
 int mcdel(rio_t *rio, int connfd);
 int mclist(rio_t *rio, int connfd);
-int addFileToList(char *fileName);
-int removeFileFromList(char *fileName);
+
+
+int deleteFile(char *fileName);
 bool fileExists(char * filename);
 bool isValidKey(rio_t *rio, unsigned int secretKey);
+int addFile(char *fileName);
+
 
 vector<char *> fileList;
 
@@ -58,18 +58,28 @@ int main(int argc, char **argv)
         rio_t rio;
         Rio_readinitb(&rio, connfd);
         
-        requestType = getRequest(&rio);
-        if(isValidKey(&rio, secretKey) == 0) {
+        if(isValidKey(&rio, secretKey)) {     
+            //Read what request is given       
+            char requestbuf[4];
+            unsigned int networkOrder;
+            if(Rio_readnb(&rio, requestbuf, 4) == 4) {
+                memcpy(&networkOrder, &requestbuf, 4);
+                requestType = ntohl(networkOrder);
+            }
+
             if(requestType == 0) {
                 cout << "Request Type     = get" << endl;
                 status = mcget(&rio, connfd);
-            } else if(requestType == 1) {
+            } 
+            else if(requestType == 1) {
                 cout << "Request Type     = put" << endl;
                 status = mcput(&rio, connfd);
-            } else if(requestType == 2) {
+            } 
+            else if(requestType == 2) {
                 cout << "Request Type     = del" << endl;
                 status = mcdel(&rio, connfd);
-            } else if(requestType == 3) {
+            } 
+            else if(requestType == 3) {
                 cout << "Request Type     = list" << endl;
                 status = mclist(&rio, connfd);
             } else {
@@ -87,18 +97,6 @@ int main(int argc, char **argv)
 	Close(connfd);
     }
     exit(0);
-}
-
-
-int getRequest(rio_t *rio) {
-    char buf[4];
-    unsigned int requestType, networkOrder;
-    if(Rio_readnb(rio, buf, 4) == 4) {
-        memcpy(&networkOrder, &buf, 4);
-        requestType = ntohl(networkOrder);
-        return requestType;
-    }
-    return -1;
 }
 
 bool isValidKey(rio_t *rio, unsigned int secretKey) {
@@ -159,7 +157,7 @@ int mcput(rio_t *rio, int connfd) {
     file = Fopen(fileName, "w");
         Fwrite(data, sizeof(char), fileSize, file);
         Fclose(file);
-        addFileToList(fileName);
+        addFile(fileName);
         status = 0;
     
     //////////////////////////
@@ -204,7 +202,10 @@ int mcget(rio_t *rio, int connfd) {
             rewind(file);
 
             data = (char*) malloc (fileSize);
-            if((n = fread(data, 1, fileSize, file)) == fileSize) { fclose(file); status = 0; }
+        if(fread(data, 1, fileSize, file) == fileSize) {
+           fclose(file); 
+           status = 0; 
+           }
             else { fileSize = 0; status = -1; }
         
     }
@@ -247,7 +248,7 @@ int mcdel(rio_t *rio, int connfd) {
     }
 
   
-    if(removeFileFromList(fileName) == -1) { 
+    if(deleteFile(fileName) == -1) { 
         status = -1; 
         }
     else {
@@ -307,7 +308,7 @@ int mclist(rio_t *rio, int connfd) {
 }
 
 
-int addFileToList(char *fileName) {
+int addFile(char *fileName) {
     string finalstr = string(fileName);
     char* finalbuf = new char[80];
     int strlength = finalstr.length();
@@ -325,7 +326,7 @@ int addFileToList(char *fileName) {
     return -1;
 }
 
-int removeFileFromList(char *fileName) {
+int deleteFile(char *fileName) {
     if(fileExists(fileName)) {
      fileList.erase(std::remove(fileList.begin(), fileList.end(), fileName), fileList.end());
     }
