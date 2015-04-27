@@ -6,13 +6,12 @@ extern "C" {
 using namespace std;
 
 int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileName, char *data, int datalen) {
+  // PUT corresponds to a request type of 1
   unsigned int requestType = 1;
-  int clientfd;
-  char *filedata;
   unsigned int networkOrder;
 
   // secretKey size + request type size + max filename length + 
-  filedata = new char  [(4 + 4 + 80 + 4 + datalen)];
+  char * filedata = new char  [(4 + 4 + 80 + 4 + datalen)];
   char *bufposition = filedata;
   
   // Add the secret key to the data to be sent
@@ -36,7 +35,7 @@ int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileNam
   memcpy(bufposition, data, datalen);
   bufposition += datalen;
 
-  clientfd = Open_clientfd(MachineName, TCPport);
+  int clientfd = Open_clientfd(MachineName, TCPport);
   Rio_writen(clientfd, filedata, (4 + 4 + 80 + 4 + datalen));
 
   // Get the status of the operation 
@@ -71,8 +70,6 @@ int main(int argc, char *argv[]) {
 
   // reading from standard input
   datalen = 0;
-  int offset = 0;
-  int currentBufSize = 1;
   char ch;
   unsigned int i =0;
   while (cin.get(ch)){

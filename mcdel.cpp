@@ -7,40 +7,38 @@ extern "C" {
 
   #include "csapp.h"
   }
-#include "mycloud.h"
-
+  
 int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filename) { 
+  // DEL corresponds to a request type of 2
   unsigned int requestType = 2;
-  char *message;
-  unsigned int messageSize, networkOrder;
+  unsigned int networkOrder;
 
-  messageSize = 4 + REQUEST_TYPE_SIZE + FILE_NAME_SIZE;
+  char *data = new char[(4+4+80)];
+  char *bufPosition = data;
 
-  message = (char*) malloc (sizeof(char)*messageSize);
-  char *bufPosition = message;
-
+  // Add the secret key to the buffer
   networkOrder = htonl(SecretKey);
   memcpy(bufPosition, &networkOrder, 4);
   bufPosition += 4;
-
+  // Add the request type to the buffer
   networkOrder = htonl(requestType);
-  memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
-  bufPosition += REQUEST_TYPE_SIZE;
-
-  memcpy(bufPosition, Filename, FILE_NAME_SIZE);
+  memcpy(bufPosition, &networkOrder, 4);
+  bufPosition += 4;
+  // Add the filename to the buffer
+  memcpy(bufPosition, Filename, 80);
   bufPosition += 80;
-
+  
   int clientfd = Open_clientfd(MachineName, TCPport);
-  Rio_writen(clientfd, message, messageSize);
-
-  char buf[4];
-  unsigned int status;
+  Rio_writen(clientfd, data, (4+4+80));
+  
+  // Get the operation status
+  char statusbuffer[4];
   rio_t rio;
   Rio_readinitb(&rio, clientfd);
   
-  status = -1;
-  if(Rio_readnb(&rio, buf, 4) == 4) {
-    memcpy(&networkOrder, &buf, 4);
+  int status = -1;
+  if(Rio_readnb(&rio, statusbuffer, 4) == 4) {
+    memcpy(&networkOrder, &statusbuffer, 4);
     status = ntohl(networkOrder);
   }
   Close(clientfd);

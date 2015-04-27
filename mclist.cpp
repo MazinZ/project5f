@@ -4,20 +4,16 @@ extern "C" {
   #include "csapp.h"
   }
   
-#include "mycloud.h"
-
 using namespace std;
 
 int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list, int *listbuflen) {
+  // LIST corresponds to a request type of 3
   unsigned int requestType = 3;
   unsigned int networkOrder;
-
-  char *message;
   
   // secret key + request type
-
-  message = new char [(4+4)];
-  char *bufPosition = message;
+  char *data = new char [(4+4)];
+  char *bufPosition = data;
 
   // add the secret key to the buffer
   networkOrder = htonl(SecretKey);
@@ -29,29 +25,28 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   bufPosition += 4;
 
   int clientfd = Open_clientfd(MachineName, TCPport);
-  Rio_writen(clientfd, message, (4+4));
-  free(message);
-
-  char statusBuf[4];
-  char listSizeBuf[4];
-  char listBuf[100000];
+  Rio_writen(clientfd, data, (4+4));
+  // Get the status, list size and the
+  char statusbuffer[4];
+  char listSize[4];
+  char filelist[100000];
   unsigned int status;
   rio_t rio;
+  
   Rio_readinitb(&rio, clientfd);
-
-    Rio_readnb(&rio, statusBuf, 4);
-    memcpy(&networkOrder, &statusBuf, 4);
-    status = ntohl(networkOrder);
-
-    Rio_readnb(&rio, listSizeBuf, 4);
-    memcpy(&networkOrder, &listSizeBuf, 4);
-    *listbuflen = ntohl(networkOrder);
-
-
-    Rio_readnb(&rio, listBuf, *listbuflen);
-    *list = (char*) malloc (*listbuflen);
-    memcpy(*list, &listBuf, *listbuflen);
-    status = 0;
+  // Get the operation status
+  Rio_readnb(&rio, statusbuffer, 4);
+  memcpy(&networkOrder, &statusbuffer, 4);
+  status = ntohl(networkOrder);
+  // Get the number of bytes in the file listing
+  Rio_readnb(&rio, listSize, 4);
+  memcpy(&networkOrder, &listSize, 4);
+  *listbuflen = ntohl(networkOrder);
+  
+  // Get the list data
+  Rio_readnb(&rio, filelist, *listbuflen);
+  *list = (char*) malloc (*listbuflen);
+  memcpy(*list, &filelist, *listbuflen);
 
   Close(clientfd);
   return status;

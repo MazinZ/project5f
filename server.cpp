@@ -1,5 +1,4 @@
 #include <iostream>
-#include "mycloud.h"
 #include <vector>
 #include <algorithm>
 #include <iterator>
@@ -23,7 +22,7 @@ bool fileExists(char * filename);
 bool isValidKey(rio_t *rio, unsigned int secretKey);
 int addFile(char *fileName);
 
-
+// This vector is used to store the file names
 vector<char *> fileList;
 
 
@@ -127,17 +126,19 @@ bool isValidKey(rio_t *rio, unsigned int secretKey) {
 
 
 int mcput(rio_t *rio, int connfd) {
+    unsigned int fileSize; 
+    unsigned int networkOrder;
+    char fileData[100000];
+    char *data;
+
+    // File used for for writing purposes
     FILE *myfile;
+    
+    
+    unsigned int status = 0;
+    char fileSizeBuf[4];
     char fileNameBuf[80];
     char fileName[80];
-    char fileSizeBuf[4];
-    unsigned int fileSize, networkOrder, status, messageSize;
-    char dataBuf[MAX_FILE_SIZE];
-    char *data;
-    
-    
-    char *response;
-
     if(Rio_readnb(rio, fileNameBuf, 80) == 80) {
         memcpy(&fileName, &fileNameBuf, 80);
         cout << "Filename         = " << fileName << endl;
@@ -145,31 +146,23 @@ int mcput(rio_t *rio, int connfd) {
         cout << "Filename         = NONE" << endl;
         status = -1;
     }
-
-    if(Rio_readnb(rio, fileSizeBuf, 4) == 4) {
-        memcpy(&networkOrder, &fileSizeBuf, 4);
-        fileSize = ntohl(networkOrder);
-    } else {
-        status = -1;
-    }
-
-    if(Rio_readnb(rio, dataBuf, fileSize) == fileSize) {
-        data = new char [fileSize];
-        memcpy(data, &dataBuf, fileSize);
-    } 
-    
-    else {
-        status = -1;
-    }
-  
-   myfile = Fopen(fileName, "wb");
-        Fwrite(data, sizeof(char), fileSize, myfile);
-        Fclose(myfile);
-        addFile(fileName);
-        status = 0;
+    // Get the length of the data
+    Rio_readnb(rio, fileSizeBuf, 4);
+    memcpy(&networkOrder, &fileSizeBuf, 4);
+    fileSize = ntohl(networkOrder);
+    // Read the data based on the length of the data
+    Rio_readnb(rio, fileData, fileSize);
+    data = (char *) malloc(fileSize);
+    memcpy(data, &fileData, fileSize);
+    // Write to the given data to the file in binary mode 
+    myfile = Fopen(fileName, "wb");
+    Fwrite(data, 1, fileSize, myfile);
+    Fclose(myfile);
+    addFile(fileName);
+    status = 0;
     
     // Send the status of the operation (success or failure)
-    response = new char [4];
+    char *response = new char [4];
     char *bufPosition = response;
 
     networkOrder = htonl(status);
@@ -181,131 +174,148 @@ int mcput(rio_t *rio, int connfd) {
 }
 
 int mcget(rio_t *rio, int connfd) {
-    size_t n;
     char fileNameBuf[80];
     char fileName[80];
-    unsigned int fileSize, networkOrder, status, messageSize;
-    char *data, *fileData;
+    unsigned int fileSize, networkOrder, status;
+    char *data = NULL; 
+    
+    
+    
+    char *fileData;
     FILE *file;
+    
 
-
-    if((n = Rio_readnb(rio, fileNameBuf, 80)) == 80) {
+    if(Rio_readnb(rio, fileNameBuf, 80) == 80) {
         memcpy(&fileName, &fileNameBuf, 80);
         cout << "Filename         = " << fileName << endl;
     } else {
         cout << "Filename         = NONE" << endl;;
         status = -1;
     }
-
+    // The file doesn't exist, set the status to -1 for error
      if(!fileExists(fileName)) { 
         fileSize = 0;
-        status = -1; }
+        status = -1; 
+        
+        }
     else {
         // Open file in binary mode
         file = fopen(fileName, "rb");
+            // Get the length of the file
             fseek(file, 0, SEEK_END);
             fileSize = ftell(file);
+            // Put the file pointer back at the beginning
             rewind(file);
 
             data = new char [fileSize];
-        if(fread(data, 1, fileSize, file) == fileSize) {
+        if(fread(data, 1, fileSize, file) == fileSize){
            fclose(file); 
            status = 0; 
            }
-            else { fileSize = 0; status = -1; }
+            else { 
+             fileSize = 0;
+             status = -1; 
+            }
         
     }
 
-    messageSize = STATUS_SIZE + MAX_NUM_BYTES_IN_FILE + fileSize;
-
-    fileData = new char [messageSize];
+    fileData = new char [(4+4+fileSize)];
     char *bufPosition = fileData;
-
+    
+    // Copy the status of the operation to the buffer
     networkOrder = htonl(status);
-    memcpy(bufPosition, &networkOrder, STATUS_SIZE);
-    bufPosition += STATUS_SIZE;
-
+    memcpy(bufPosition, &networkOrder, 4);
+    bufPosition += 4;
+    // Copy the filesize to the buffer
     networkOrder = htonl(fileSize);
     memcpy(bufPosition, &networkOrder, 4);
     bufPosition+= 4;
-
+    // Copy the file's data to the buffer
     memcpy(bufPosition, data, fileSize);
     bufPosition += fileSize;
     
-    Rio_writen(connfd, fileData, messageSize);
+    Rio_writen(connfd, fileData, (4+4+fileSize));
     return status;
 }
 
 int mcdel(rio_t *rio, int connfd) {
     char fileNameBuf[80];
     char fileName[80];
-    unsigned int networkOrder, status, messageSize;
-    char *response;   
-    
+    unsigned int networkOrder;
+    unsigned int status;
+    // Read the filename
     if(Rio_readnb(rio, fileNameBuf, 80) == 80) {
         memcpy(&fileName, &fileNameBuf, 80);
         cout << "Filename         = " <<  fileName << endl;
-    } else {
+    } 
+    else {
         cout << "Filename         = NONE" << endl;
         status = -1;
     }
-
+    
+    // If the file doesn't exist we can't delete it, set operation status to failure
     if(!fileExists(fileName)) { 
         status = -1; 
         }
     else {
-        if(remove(fileName) != 0) { status = -1; }
-        else { 
-           status = 0; 
+        remove(fileName);
+        status = 0;
         }
-    }
-
-    response = new char [4];
+    
+    char * response = new char [4];
     char *bufPosition = response;
-
+    
+    // Copy the status into the response buffer
     networkOrder = htonl(status);
     memcpy(bufPosition, &networkOrder, 4);
     bufPosition += 4;
 
-    Rio_writen(connfd, response, messageSize);
+    Rio_writen(connfd, response, 4);
 
     return status;
 }
 
 int mclist(rio_t *rio, int connfd) {
-    unsigned int datalen, networkOrder, status, messageSize;
-    char *message;
+    unsigned int networkOrder;
+    unsigned int status;
+    char * data;
     //vector<char *> test;
+    // DEBUGGING COMMENT
    // test.push_back("hellooooooooooooooooooooooooooooooo\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
    // test.push_back("test2\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
- 
-    messageSize = STATUS_SIZE + MAX_NUM_BYTES_IN_FILE + datalen;
-    datalen = fileList.size() * 80;
+    // Status size + Request size + length of data
+    unsigned int datalen = fileList.size() * 80;
 
-    message = new char [messageSize];
-    char *bufPosition = message;
+    data = new char [(4+4+datalen)];
+    char *bufPosition = data;
     status = 0;
-
+    // Copy the status into the data buffer
     networkOrder = htonl(status);
     memcpy(bufPosition, &networkOrder, 4);
     bufPosition += 4;
-
+    // Copy the data length to the buffer
     networkOrder = htonl(datalen);
     memcpy(bufPosition, &networkOrder, 4);
     bufPosition += 4;
-
-   
+    // Copy the filelist to the buffer
+    for (int i = 0; i < fileList.size(); i++){
+        for (int j = 0; j < 80; j++){
+        printf("%c | ", fileList[i][j]);
+        }
+        }
+    cout << "DATALEN: " << datalen << endl;
+        
     memcpy(bufPosition, fileList[0], datalen);
     bufPosition += datalen;
 
-    Rio_writen(connfd, message, messageSize);
+    Rio_writen(connfd, data, (4+4+datalen));
     return status;
 }
 
 
 int addFile(char *fileName) {
     string finalstr = string(fileName);
-    char* finalbuf = new char[80];
+    char* finalbuf = (char *) malloc (80);
     int strlength = finalstr.length();
     if(!fileExists(fileName)) {
         while (strlength <= 80)
@@ -324,6 +334,7 @@ int addFile(char *fileName) {
 int deleteFile(char *fileName) {
     if(fileExists(fileName)) {
      fileList.erase(std::remove(fileList.begin(), fileList.end(), fileName), fileList.end());
+    return 0;
     }
     else
         return -1;

@@ -97,7 +97,7 @@ unsigned int Sleep(unsigned int secs)
 {
     unsigned int rc;
 
-    if ((rc = sleep(secs)) < 0)
+    rc = sleep(secs);
 	unix_error("Sleep error");
     return rc;
 }
@@ -175,7 +175,7 @@ void Sigdelset(sigset_t *set, int signum)
 int Sigismember(const sigset_t *set, int signum)
 {
     int rc;
-    if ((rc = sigismember(set, signum)) < 0)
+    rc = sigismember(set, signum);
 	unix_error("Sigismember error");
     return rc;
 }
@@ -507,7 +507,7 @@ void Pthread_once(pthread_once_t *once_control, void (*init_function)()) {
 
 void Sem_init(sem_t *sem, int pshared, unsigned int value) 
 {
-    if (sem_init(sem, pshared, value) < 0)
+    //if (sem_init(sem, pshared, value) < 0)
 	unix_error("Sem_init error");
 }
 

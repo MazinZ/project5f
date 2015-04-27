@@ -3,7 +3,6 @@ extern "C" {
 
   #include "csapp.h"
   }
- #include "mycloud.h"
 
 
 using namespace std;

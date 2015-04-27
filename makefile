@@ -6,8 +6,8 @@ all: server mcput mclist mcdel mcget #client mcput mcget mcdel mclist
 csapp.h:
 	wget http://csapp.cs.cmu.edu/2e/ics2/code/include/csapp.h
 
-csapp.c:
-	wget http://csapp.cs.cmu.edu/2e/ics2/code/src/csapp.c
+#csapp.c:
+#	wget http://csapp.cs.cmu.edu/2e/ics2/code/src/csapp.c
 
 csapp.o: csapp.h csapp.c
 
@@ -37,4 +37,4 @@ mcget: mcget.cpp csapp.o
 
 .PHONY: clean
 clean:
-	/bin/rm -rf csapp.h csapp.c *.o server mcput mcget mcdel mclist
+	/bin/rm -rf csapp.h *.o server mcput mcget mcdel mclist
