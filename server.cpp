@@ -14,15 +14,15 @@ extern "C" {
 #include <string.h>
 
 
-bool validKey(rio_t *rio, unsigned int secretKey);
 int getRequest(rio_t *rio);
-int storeRequest(rio_t *rio, int connfd);
-int retrieveRequest(rio_t *rio, int connfd);
-int deleteRequest(rio_t *rio, int connfd);
-int listFilesRequest(rio_t *rio, int connfd);
+int mcput(rio_t *rio, int connfd);
+int mcget(rio_t *rio, int connfd);
+int mcdel(rio_t *rio, int connfd);
+int mclist(rio_t *rio, int connfd);
 int addFileToList(char *fileName);
 int removeFileFromList(char *fileName);
 bool fileExists(char * filename);
+bool isValidKey(rio_t *rio, unsigned int secretKey);
 
 vector<char *> fileList;
 
@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     unsigned int secretKey;
 
     if (argc != 3) {
-	fprintf(stderr, "usage: %s <port> <secret key>\n", argv[0]);
+	cout << "usage: " << argv[0] << " <port> <secret key>" << endl;
 	exit(0);
     }
     port = atoi(argv[1]);
@@ -59,19 +59,19 @@ int main(int argc, char **argv)
         Rio_readinitb(&rio, connfd);
         
         requestType = getRequest(&rio);
-        if(validKey(&rio, secretKey) == 0) {
+        if(isValidKey(&rio, secretKey) == 0) {
             if(requestType == 0) {
                 cout << "Request Type     = get" << endl;
-                status = retrieveRequest(&rio, connfd);
+                status = mcget(&rio, connfd);
             } else if(requestType == 1) {
                 cout << "Request Type     = put" << endl;
-                status = storeRequest(&rio, connfd);
+                status = mcput(&rio, connfd);
             } else if(requestType == 2) {
                 cout << "Request Type     = del" << endl;
-                status = deleteRequest(&rio, connfd);
+                status = mcdel(&rio, connfd);
             } else if(requestType == 3) {
                 cout << "Request Type     = list" << endl;
-                status = listFilesRequest(&rio, connfd);
+                status = mclist(&rio, connfd);
             } else {
                 cout << "Request Type     = invalid" << endl;
             }
@@ -89,7 +89,19 @@ int main(int argc, char **argv)
     exit(0);
 }
 
-bool validKey(rio_t *rio, unsigned int secretKey) {
+
+int getRequest(rio_t *rio) {
+    char buf[4];
+    unsigned int requestType, networkOrder;
+    if(Rio_readnb(rio, buf, 4) == 4) {
+        memcpy(&networkOrder, &buf, 4);
+        requestType = ntohl(networkOrder);
+        return requestType;
+    }
+    return -1;
+}
+
+bool isValidKey(rio_t *rio, unsigned int secretKey) {
     char buf[4];
     unsigned int givenKey;
     unsigned int networkOrder;
@@ -109,20 +121,8 @@ bool validKey(rio_t *rio, unsigned int secretKey) {
     return false;
 }
 
-int getRequest(rio_t *rio) {
-    size_t n;
-    char buf[REQUEST_TYPE_SIZE];
-    unsigned int requestType, networkOrder;
-    if((n = Rio_readnb(rio, buf, REQUEST_TYPE_SIZE)) == REQUEST_TYPE_SIZE) {
-        memcpy(&networkOrder, &buf, REQUEST_TYPE_SIZE);
-        requestType = ntohl(networkOrder);
 
-        return requestType;
-    }
-    return -1;
-}
-
-int storeRequest(rio_t *rio, int connfd) {
+int mcput(rio_t *rio, int connfd) {
     size_t n;
     char fileNameBuf[80];
     char fileName[80];
@@ -134,9 +134,9 @@ int storeRequest(rio_t *rio, int connfd) {
 
     if((n = Rio_readnb(rio, fileNameBuf, 80)) == 80) {
         memcpy(&fileName, &fileNameBuf, 80);
-        printf("Filename         = %s\n", fileName);
+        cout << "Filename         = " << fileName << endl;
     } else {
-        printf("Filename         = NONE\n");
+        cout << "Filename         = NONE" << endl;
         status = -1;
     }
 
@@ -149,7 +149,6 @@ int storeRequest(rio_t *rio, int connfd) {
 
     if((n = Rio_readnb(rio, dataBuf, fileSize)) == fileSize) {
         data = (char*) malloc (sizeof(char)*fileSize);
-        if(data == NULL) { fprintf(stderr, "Memory Error\n"); return -1; }
         memcpy(data, &dataBuf, fileSize);
     } 
     
@@ -177,7 +176,7 @@ int storeRequest(rio_t *rio, int connfd) {
     return status;
 }
 
-int retrieveRequest(rio_t *rio, int connfd) {
+int mcget(rio_t *rio, int connfd) {
     size_t n;
     char fileNameBuf[80];
     char fileName[80];
@@ -188,9 +187,9 @@ int retrieveRequest(rio_t *rio, int connfd) {
 
     if((n = Rio_readnb(rio, fileNameBuf, 80)) == 80) {
         memcpy(&fileName, &fileNameBuf, 80);
-        printf("Filename         = %s\n", fileName);
+        cout << "Filename         = " << fileName << endl;
     } else {
-        printf("Filename         = NONE\n");
+        cout << "Filename         = NONE" << endl;;
         status = -1;
     }
 
@@ -213,7 +212,6 @@ int retrieveRequest(rio_t *rio, int connfd) {
     messageSize = STATUS_SIZE + MAX_NUM_BYTES_IN_FILE + fileSize;
 
     message = (char*) malloc (sizeof(char*)*messageSize);
-    if(message == NULL) { fprintf(stderr, "Memory Error\n"); return -1; }
     char *bufPosition = message;
 
     networkOrder = htonl(status);
@@ -229,12 +227,11 @@ int retrieveRequest(rio_t *rio, int connfd) {
     free(data);
 
     Rio_writen(connfd, message, messageSize);
-    free(message);
 
     return status;
 }
 
-int deleteRequest(rio_t *rio, int connfd) {
+int mcdel(rio_t *rio, int connfd) {
     size_t n;
     char fileNameBuf[80];
     char fileName[80];
@@ -243,9 +240,9 @@ int deleteRequest(rio_t *rio, int connfd) {
     
     if((n = Rio_readnb(rio, fileNameBuf, 80)) == 80) {
         memcpy(&fileName, &fileNameBuf, 80);
-        printf("Filename         = %s\n", fileName);
+        cout << "Filename         = " <<  fileName << endl;
     } else {
-        printf("Filename         = NONE\n");
+        cout << "Filename         = NONE" << endl;
         status = -1;
     }
 
@@ -274,20 +271,17 @@ int deleteRequest(rio_t *rio, int connfd) {
     return status;
 }
 
-int listFilesRequest(rio_t *rio, int connfd) {
+int mclist(rio_t *rio, int connfd) {
     unsigned int datalen, networkOrder, status, messageSize;
     char *message;
     //vector<char *> test;
    // test.push_back("hellooooooooooooooooooooooooooooooo\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
    // test.push_back("test2\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0");
-    for (int i = 0; i < fileList.size(); i++){
-        cout << "FILES: "<<fileList[i] << endl;
-           }
+ 
+    messageSize = STATUS_SIZE + MAX_NUM_BYTES_IN_FILE + datalen;
     datalen = fileList.size() * 80;
 
-    messageSize = STATUS_SIZE + MAX_NUM_BYTES_IN_FILE + datalen;
-
-    message = (char*) malloc (sizeof(char*)*messageSize);
+    message = (char*) malloc (messageSize);
     char *bufPosition = message;
     status = 0;
 

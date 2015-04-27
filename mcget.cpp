@@ -5,8 +5,12 @@
 using namespace std;
 
 int main(int argc, char *argv[]) {
-
-
+  
+  if (argc != 5) { 
+    cout << "Usage: ./mcget <machine> <port> <secret key> <filename>i" << endl; r
+    return -1;
+    }
+   
   char * MachineName = argv[1];
   unsigned int TCPport = atoi(argv[2]);
   unsigned int secretKey = atoi(argv[3]);   
@@ -14,7 +18,7 @@ int main(int argc, char *argv[]) {
   char *data;
   int datalen;
 
-  if (argc != 5) { fprintf(stderr, "Usage: ./mcget <machine> <port> <secret key> <filename>i\n"); return -1;}
+
   int status = mycloud_getfile(MachineName, TCPport, secretKey, Filename, &data, &datalen);
   write(1, data, datalen);
   return status;

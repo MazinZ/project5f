@@ -10,9 +10,7 @@ int main(int argc, char *argv[]) {
   unsigned int secretKey = atoi(argv[3]);   
   char *Filename         = argv[4];
   char fileData[100000];
-  
   int datalen;
-  size_t n;
 
   if (argc != 5) { 
     cout << "Usage: ./mcput <machine> <port> <secret key> <filename>" << endl; 

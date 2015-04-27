@@ -7,6 +7,7 @@ extern "C" {
 using namespace std;
 
 int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileName, char *data, int datalen) {
+  unsigned int request = 1;
   int clientfd;
   char *filedata;
   unsigned int networkOrder;
@@ -19,7 +20,6 @@ int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileNam
   memcpy(bufposition, &networkOrder, 4);
   bufposition += 4;
 
-  unsigned int request = 1;
   networkOrder = htonl(request);
   memcpy(bufposition, &networkOrder, 4);
   bufposition += 4;
@@ -52,8 +52,8 @@ int mycloud_putfile(char *MachineName, int TCPport, int SecretKey, char *FileNam
   return status;
 }
 
-int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list, int *list_len) {
-
+int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list, int *listbuflen) {
+  unsigned int request = 3;
   int clientfd;
   char *message;
   unsigned int messageSize, networkOrder;
@@ -61,16 +61,15 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   messageSize = 4 + REQUEST_TYPE_SIZE;
 
   message = (char*) malloc (sizeof(char)*messageSize);
-  char *messagePtr = message;
+  char *bufPosition = message;
 
   networkOrder = htonl(SecretKey);
-  memcpy(messagePtr, &networkOrder, 4);
-  messagePtr += 4;
+  memcpy(bufPosition, &networkOrder, 4);
+  bufPosition += 4;
 
-  unsigned int request = 3;
   networkOrder = htonl(request);
-  memcpy(messagePtr, &networkOrder, REQUEST_TYPE_SIZE);
-  messagePtr += REQUEST_TYPE_SIZE;
+  memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
+  bufPosition += REQUEST_TYPE_SIZE;
 
   clientfd = Open_clientfd(MachineName, TCPport);
   Rio_writen(clientfd, message, messageSize);
@@ -79,7 +78,7 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
   size_t n;
   char statusBuf[4];
   char listSizeBuf[4];
-  char listBuf[MAX_FILE_SIZE];
+  char listBuf[100000];
   unsigned int status;
   rio_t rio;
   Rio_readinitb(&rio, clientfd);
@@ -93,15 +92,14 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
 
   if((n = Rio_readnb(&rio, listSizeBuf, 4)) == 4) {
     memcpy(&networkOrder, &listSizeBuf, 4);
-    *list_len = ntohl(networkOrder);
+    *listbuflen = ntohl(networkOrder);
   } 
   else 
     status = -1;
 
-  if((n = Rio_readnb(&rio, listBuf, *list_len)) == *list_len) {
-    *list = (char*) malloc (*list_len);
-    if(*list == NULL) { fprintf(stderr, "Memory Error\n"); return -1; }
-    memcpy(*list, &listBuf, *list_len);
+  if((n = Rio_readnb(&rio, listBuf, *listbuflen)) == *listbuflen) {
+    *list = (char*) malloc (*listbuflen);
+    memcpy(*list, &listBuf, *listbuflen);
     status = 0;
   } 
   else
@@ -113,7 +111,7 @@ int mycloud_listfiles(char *MachineName, int TCPport, int SecretKey, char **list
 
 
 int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filename) { 
-
+  unsigned int request = 2;
   int clientfd;
   char *message;
   unsigned int messageSize, networkOrder;
@@ -121,19 +119,18 @@ int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   messageSize = 4 + REQUEST_TYPE_SIZE + FILE_NAME_SIZE;
 
   message = (char*) malloc (sizeof(char)*messageSize);
-  char *messagePtr = message;
+  char *bufPosition = message;
 
   networkOrder = htonl(SecretKey);
-  memcpy(messagePtr, &networkOrder, 4);
-  messagePtr += 4;
+  memcpy(bufPosition, &networkOrder, 4);
+  bufPosition += 4;
 
-  unsigned int request = 2;
   networkOrder = htonl(request);
-  memcpy(messagePtr, &networkOrder, REQUEST_TYPE_SIZE);
-  messagePtr += REQUEST_TYPE_SIZE;
+  memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
+  bufPosition += REQUEST_TYPE_SIZE;
 
-  memcpy(messagePtr, Filename, FILE_NAME_SIZE);
-  messagePtr += FILE_NAME_SIZE;
+  memcpy(bufPosition, Filename, FILE_NAME_SIZE);
+  bufPosition += 80;
 
   clientfd = Open_clientfd(MachineName, TCPport);
   Rio_writen(clientfd, message, messageSize);
@@ -158,7 +155,7 @@ int mycloud_delfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
 
 
 int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filename, char **data, int *datalen) {
-
+  unsigned int request = 0;
   int clientfd;
   char *message;
   unsigned int messageSize, networkOrder;
@@ -166,29 +163,28 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   messageSize = 4 + REQUEST_TYPE_SIZE + FILE_NAME_SIZE;
 
   message = (char*) malloc (sizeof(char)*messageSize);
-  char *messagePtr = message;
+  char *bufPosition = message;
 
   networkOrder = htonl(SecretKey);
-  memcpy(messagePtr, &networkOrder, 4);
-  messagePtr += 4;
+  memcpy(bufPosition, &networkOrder, 4);
+  bufPosition += 4;
 
-  unsigned int request = 0;
   networkOrder = htonl(request);
-  memcpy(messagePtr, &networkOrder, REQUEST_TYPE_SIZE);
-  messagePtr += REQUEST_TYPE_SIZE;
+  memcpy(bufPosition, &networkOrder, REQUEST_TYPE_SIZE);
+  bufPosition += REQUEST_TYPE_SIZE;
 
-  memcpy(messagePtr, Filename, FILE_NAME_SIZE);
-  messagePtr += FILE_NAME_SIZE;
+  memcpy(bufPosition, Filename, FILE_NAME_SIZE);
+  bufPosition += FILE_NAME_SIZE;
 
   clientfd = Open_clientfd(MachineName, TCPport);
   Rio_writen(clientfd, message, messageSize);
   free(message);
 
   size_t n;
-  int GET_STATUS_SIZE = 4 + 4 + MAX_FILE_SIZE;
+  int GET_STATUS_SIZE = 4 + 4 + 100000;
   char buf[GET_STATUS_SIZE];
   char fileSizeBuf[4];
-  char dataBuf[MAX_FILE_SIZE];
+  char dataBuf[100000];
   unsigned int status, bytesInFile;
   
   rio_t rio;
@@ -215,7 +211,7 @@ int mycloud_getfile(char *MachineName, int TCPport, int SecretKey, char *Filenam
   
   if((n = Rio_readnb(&rio, dataBuf, bytesInFile)) == bytesInFile) {
 
-    *data = (char*) malloc (sizeof(char)*bytesInFile);
+    *data = (char*) malloc (bytesInFile);
     memcpy(*data, &dataBuf, bytesInFile);
   
   } 
